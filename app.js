@@ -3,7 +3,9 @@ const express= require("express");
 const bodyParser = require("body-parser");
 const ejs= require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+const bcrypt= require("bcrypt");
+const saltRounds= 10;
+
 
 
 const app = express();
@@ -32,7 +34,6 @@ const User = mongoose.model("User",userSchema);
 
 
 
-
 app.get("/",function(req,res){
     res.render("home");
 });
@@ -49,9 +50,11 @@ app.get("/register",function(req,res){
 
 
 app.post("/register",function(req,res){
-    const newUser= new User({
+    // putting the whole function of creating and saving the new user into brcrypt function
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        const newUser= new User({
         email: req.body.username,
-        password: md5(req.body.password)                 // hash the password when storing in DB and cannot be un hashed again to original password
+        password: hash                
     });
 
     newUser.save()
@@ -61,19 +64,23 @@ app.post("/register",function(req,res){
         .catch((err)=>{
             console.log(err);
         })
+        
+    });
+
 });
 
 
 
 app.post("/login",function(req,res){
     const username= req.body.username;
-    const password= md5(req.body.password);          // take the input password and hash it and then compare it with the stored password if same then right password entered and if not then wrong password as hashing function is same i.e, md5  
-
+    const password= req.body.password;          
     User.findOne({email: username})
         .then(function(foundUser){
-            if(foundUser.password === password){
-                res.render("secrets");
-            }
+            bcrypt.compare(password, foundUser.password, function(err, result) {   // using bcrypt.compare to compare entered password and stored password in DB and returning true or false in result 
+                if(result === true){
+                    res.render("secrets");
+                }
+            });
         })
         .catch((err)=>{
             console.log(err);
